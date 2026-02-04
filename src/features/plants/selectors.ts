@@ -16,13 +16,10 @@ export function useSortedPlants() {
 }
 
 /**
- * アクティブセッションの植物を取得
+ * 育成中の全植物を取得（セッション中）
  */
-export function useActivePlant() {
-  return usePlantsStore(state => {
-    if (!state.activeSession) return null;
-    return state.getPlantById(state.activeSession.plantId) || null;
-  });
+export function useActivePlants() {
+  return usePlantsStore(state => state.plants);
 }
 
 /**
@@ -49,5 +46,6 @@ export function useSessionInfo() {
     progress: state.getCurrentProgress(),
     remainingTime: state.getRemainingTime(),
     session: state.activeSession,
+    lastSessionResults: state.lastSessionResults,
   }));
 }

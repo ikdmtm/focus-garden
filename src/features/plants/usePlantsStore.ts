@@ -1,9 +1,10 @@
 /**
  * 植物管理ストア（Zustand）
+ * 全植物同時育成対応版
  */
 
 import { create } from 'zustand';
-import { Plant, FocusSession, SessionMinutes, CreatePlantParams } from '@core/domain/models';
+import { Plant, FocusSession, SessionMinutes, CreatePlantParams, PlantSessionResult } from '@core/domain/models';
 import { generateId, now } from '@core/domain/ids';
 import { plantRepository, sessionRepository } from '@core/storage/repo.async';
 import {
@@ -11,8 +12,7 @@ import {
   completeSession,
   interruptSession,
   isSessionCompleted,
-  applySessionResult,
-  getSessionResult,
+  applySessionResults,
   getSessionProgress,
   getSessionRemainingTime,
 } from '@core/engine/focusEngine';
@@ -21,6 +21,7 @@ interface PlantsState {
   // State
   plants: Plant[];
   activeSession: FocusSession | null;
+  lastSessionResults: PlantSessionResult[];  // 直前のセッション結果（結果モーダル用）
   loading: boolean;
   error: string | null;
 
@@ -30,10 +31,10 @@ interface PlantsState {
   deletePlant: (id: string) => Promise<void>;
   
   // Session Actions
-  startSession: (plantId: string, minutes: SessionMinutes) => Promise<void>;
+  startSession: (minutes: SessionMinutes) => Promise<void>;
   checkSessionCompletion: () => Promise<void>;
-  completeCurrentSession: () => Promise<void>;
   interruptCurrentSession: () => Promise<void>;
+  clearSessionResults: () => void;
   
   // Helpers
   getPlantById: (id: string) => Plant | undefined;
@@ -45,6 +46,7 @@ export const usePlantsStore = create<PlantsState>((set, get) => ({
   // Initial State
   plants: [],
   activeSession: null,
+  lastSessionResults: [],
   loading: false,
   error: null,
 
@@ -99,16 +101,17 @@ export const usePlantsStore = create<PlantsState>((set, get) => ({
     }
   },
 
-  // Start new session
-  startSession: async (plantId: string, minutes: SessionMinutes) => {
+  // Start new session (全植物対象)
+  startSession: async (minutes: SessionMinutes) => {
     set({ loading: true, error: null });
     try {
-      const plant = get().plants.find(p => p.id === plantId);
-      if (!plant) {
-        throw new Error('Plant not found');
+      const { plants } = get();
+      
+      if (plants.length === 0) {
+        throw new Error('育成中の植物がありません');
       }
 
-      const session = engineStartSession({ plantId, minutes });
+      const session = engineStartSession({ minutes });
       
       await sessionRepository.saveSession(session);
       await sessionRepository.setActiveSession(session);
@@ -122,53 +125,44 @@ export const usePlantsStore = create<PlantsState>((set, get) => ({
 
   // Check if session should be completed automatically
   checkSessionCompletion: async () => {
-    const { activeSession } = get();
+    const { activeSession, plants } = get();
     if (!activeSession || activeSession.status !== 'active') return;
 
     const currentTime = now();
     if (isSessionCompleted(activeSession, currentTime)) {
-      await get().completeCurrentSession();
-    }
-  },
-
-  // Complete current session
-  completeCurrentSession: async () => {
-    const { activeSession, plants } = get();
-    if (!activeSession || activeSession.status !== 'active') return;
-
-    set({ loading: true, error: null });
-    try {
-      const plant = plants.find(p => p.id === activeSession.plantId);
-      if (!plant) {
-        throw new Error('Plant not found');
+      // 自動完了
+      set({ loading: true, error: null });
+      try {
+        // Complete session（全植物処理）
+        const { session: completedSession, plantResults } = completeSession(
+          activeSession,
+          plants,
+          currentTime
+        );
+        
+        // Apply results to all plants
+        const updatedPlants = applySessionResults(plants, plantResults);
+        
+        // Save to storage
+        await sessionRepository.saveSession(completedSession);
+        await sessionRepository.setActiveSession(null);
+        
+        // Save all updated plants
+        for (const plant of updatedPlants) {
+          await plantRepository.savePlant(plant);
+        }
+        
+        // Update state
+        set({ 
+          plants: updatedPlants, 
+          activeSession: null,
+          lastSessionResults: plantResults,
+          loading: false 
+        });
+      } catch (error) {
+        set({ error: (error as Error).message, loading: false });
+        throw error;
       }
-
-      // Complete session
-      const currentTime = now();
-      const completedSession = completeSession(activeSession, plant, currentTime);
-      
-      // Apply result to plant
-      const result = getSessionResult(completedSession);
-      const updatedPlant = applySessionResult(plant, result);
-      
-      // Save to storage
-      await sessionRepository.saveSession(completedSession);
-      await sessionRepository.setActiveSession(null);
-      await plantRepository.savePlant(updatedPlant);
-      
-      // Update state
-      const updatedPlants = plants.map(p => 
-        p.id === updatedPlant.id ? updatedPlant : p
-      );
-      
-      set({ 
-        plants: updatedPlants, 
-        activeSession: null, 
-        loading: false 
-      });
-    } catch (error) {
-      set({ error: (error as Error).message, loading: false });
-      throw error;
     }
   },
 
@@ -179,38 +173,42 @@ export const usePlantsStore = create<PlantsState>((set, get) => ({
 
     set({ loading: true, error: null });
     try {
-      const plant = plants.find(p => p.id === activeSession.plantId);
-      if (!plant) {
-        throw new Error('Plant not found');
-      }
-
-      // Interrupt session
+      // Interrupt session（全植物処理）
       const currentTime = now();
-      const interruptedSession = interruptSession(activeSession, currentTime);
+      const { session: interruptedSession, plantResults } = interruptSession(
+        activeSession,
+        plants,
+        currentTime
+      );
       
-      // Apply result to plant
-      const result = getSessionResult(interruptedSession);
-      const updatedPlant = applySessionResult(plant, result);
+      // Apply results to all plants
+      const updatedPlants = applySessionResults(plants, plantResults);
       
       // Save to storage
       await sessionRepository.saveSession(interruptedSession);
       await sessionRepository.setActiveSession(null);
-      await plantRepository.savePlant(updatedPlant);
+      
+      // Save all updated plants
+      for (const plant of updatedPlants) {
+        await plantRepository.savePlant(plant);
+      }
       
       // Update state
-      const updatedPlants = plants.map(p => 
-        p.id === updatedPlant.id ? updatedPlant : p
-      );
-      
       set({ 
         plants: updatedPlants, 
-        activeSession: null, 
+        activeSession: null,
+        lastSessionResults: plantResults,
         loading: false 
       });
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
       throw error;
     }
+  },
+
+  // Clear session results (モーダルを閉じたときに呼ぶ)
+  clearSessionResults: () => {
+    set({ lastSessionResults: [] });
   },
 
   // Helper: Get plant by ID

@@ -53,23 +53,25 @@ export type SessionStatus =
 
 export interface FocusSession {
   id: string;                           // セッションID
-  plantId: string;                      // 対象の植物ID
   minutes: SessionMinutes;              // セッション時間
   status: SessionStatus;                // セッション状態
   startedAt: number | null;             // 開始日時（UNIX timestamp）
   endedAt: number | null;               // 終了日時（UNIX timestamp）
-  earnedGP: number;                     // 獲得したGP
-  newMutation: MutationId | null;       // 獲得した突然変異（なければnull）
 }
 
 // ========================================
 // セッション結果
 // ========================================
-export interface SessionResult {
+export interface PlantSessionResult {
+  plantId: string;                      // 植物ID
   earnedGP: number;                     // 獲得GP
   newMutation: MutationId | null;       // 獲得した突然変異
+}
+
+export interface SessionResult {
   completedSuccessfully: boolean;       // 完走したか
   elapsedMinutes: number;               // 経過時間（分）
+  plantResults: PlantSessionResult[];   // 各植物の結果
 }
 
 // ========================================
@@ -83,6 +85,5 @@ export interface CreatePlantParams {
 // セッション開始時のパラメータ
 // ========================================
 export interface StartSessionParams {
-  plantId: string;
   minutes: SessionMinutes;
 }

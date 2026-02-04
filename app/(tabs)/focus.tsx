@@ -7,28 +7,22 @@ import {
   Alert,
   Modal,
   ScrollView,
+  FlatList,
 } from 'react-native';
 import { usePlantsStore } from '@/features/plants/usePlantsStore';
-import { useSessionInfo, useActivePlant } from '@/features/plants/selectors';
+import { useSessionInfo, useActivePlants } from '@/features/plants/selectors';
 import { SessionMinutes } from '@core/domain/models';
 import { calcGrowthPoints } from '@core/domain/rules';
 
 const SESSION_OPTIONS: SessionMinutes[] = [10, 25, 45, 60];
 
 export default function FocusScreen() {
-  const { plants, loadPlants, startSession, completeCurrentSession, interruptCurrentSession, checkSessionCompletion } = usePlantsStore();
-  const { isActive, progress, remainingTime, session } = useSessionInfo();
-  const activePlant = useActivePlant();
+  const { plants, loadPlants, startSession, interruptCurrentSession, checkSessionCompletion, clearSessionResults } = usePlantsStore();
+  const { isActive, progress, remainingTime, session, lastSessionResults } = useSessionInfo();
+  const activePlants = useActivePlants();
 
-  const [selectedPlantId, setSelectedPlantId] = useState<string | null>(null);
   const [selectedMinutes, setSelectedMinutes] = useState<SessionMinutes>(25);
-  const [selectPlantModalVisible, setSelectPlantModalVisible] = useState(false);
   const [resultModalVisible, setResultModalVisible] = useState(false);
-  const [sessionResult, setSessionResult] = useState<{
-    gpGained: number;
-    mutation: string | null;
-    wasInterrupted: boolean;
-  } | null>(null);
 
   useEffect(() => {
     loadPlants();
@@ -45,44 +39,31 @@ export default function FocusScreen() {
     return () => clearInterval(interval);
   }, [isActive]);
 
+  // セッション結果があれば自動でモーダル表示
+  useEffect(() => {
+    if (lastSessionResults.length > 0 && !isActive) {
+      setResultModalVisible(true);
+    }
+  }, [lastSessionResults, isActive]);
+
   const handleStartSession = async () => {
-    if (!selectedPlantId) {
-      Alert.alert('エラー', '植物を選択してください');
+    if (plants.length === 0) {
+      Alert.alert('エラー', '育成中の植物がありません。\nホーム画面で植物を作成してください。');
       return;
     }
 
     try {
-      await startSession(selectedPlantId, selectedMinutes);
-      Alert.alert('開始！', `${selectedMinutes}分のセッションを開始しました`);
+      await startSession(selectedMinutes);
+      Alert.alert('開始！', `${selectedMinutes}分のセッションを開始しました\n全ての植物が育ちます`);
     } catch (error) {
       Alert.alert('エラー', 'セッションの開始に失敗しました');
-    }
-  };
-
-  const handleComplete = async () => {
-    if (!session || !activePlant) return;
-
-    try {
-      const gpGained = calcGrowthPoints(session.minutes);
-      const mutation = session.newMutation || null;
-
-      await completeCurrentSession();
-
-      setSessionResult({
-        gpGained,
-        mutation,
-        wasInterrupted: false,
-      });
-      setResultModalVisible(true);
-    } catch (error) {
-      Alert.alert('エラー', 'セッションの完了に失敗しました');
     }
   };
 
   const handleInterrupt = () => {
     Alert.alert(
       '中断しますか？',
-      'セッションを中断するとGPは獲得できません',
+      '経過時間分のGPは獲得できますが、突然変異抽選はありません',
       [
         { text: 'キャンセル', style: 'cancel' },
         {
@@ -91,12 +72,6 @@ export default function FocusScreen() {
           onPress: async () => {
             try {
               await interruptCurrentSession();
-              setSessionResult({
-                gpGained: 0,
-                mutation: null,
-                wasInterrupted: true,
-              });
-              setResultModalVisible(true);
             } catch (error) {
               Alert.alert('エラー', 'セッションの中断に失敗しました');
             }
@@ -104,6 +79,11 @@ export default function FocusScreen() {
         },
       ]
     );
+  };
+
+  const handleCloseResultModal = () => {
+    setResultModalVisible(false);
+    clearSessionResults(); // バグ修正：モーダルを閉じたら結果をクリア
   };
 
   const formatTime = (ms: number) => {
@@ -114,12 +94,14 @@ export default function FocusScreen() {
   };
 
   // アクティブセッション表示
-  if (isActive && session && activePlant) {
+  if (isActive && session && activePlants.length > 0) {
     return (
       <View style={styles.container}>
-        <View style={styles.activeSessionContainer}>
+        <ScrollView contentContainerStyle={styles.activeSessionContainer}>
           <Text style={styles.activeTitle}>セッション実行中</Text>
-          <Text style={styles.plantName}>{activePlant.name}</Text>
+          <Text style={styles.subtitle}>
+            育成中の植物: {activePlants.length}個
+          </Text>
 
           <View style={styles.timerContainer}>
             <Text style={styles.timerText}>{formatTime(remainingTime)}</Text>
@@ -143,63 +125,78 @@ export default function FocusScreen() {
           <View style={styles.sessionInfo}>
             <Text style={styles.infoLabel}>予定時間: {session.minutes}分</Text>
             <Text style={styles.infoLabel}>
-              獲得予定GP: {calcGrowthPoints(session.minutes)}
+              各植物の獲得予定GP: {calcGrowthPoints(session.minutes)}
+            </Text>
+            <Text style={styles.infoLabelSmall}>
+              ※ タイマーが0になると自動完了します
             </Text>
           </View>
 
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={[styles.button, styles.completeButton]}
-              onPress={handleComplete}
-            >
-              <Text style={styles.buttonText}>✓ 完了</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.button, styles.interruptButton]}
-              onPress={handleInterrupt}
-            >
-              <Text style={styles.buttonText}>✕ 中断</Text>
-            </TouchableOpacity>
+          {/* 育成中の植物一覧 */}
+          <View style={styles.plantsPreview}>
+            <Text style={styles.plantsPreviewTitle}>育成中の植物</Text>
+            {activePlants.map(plant => (
+              <View key={plant.id} style={styles.plantPreviewItem}>
+                <Text style={styles.plantPreviewName}>{plant.name}</Text>
+                <Text style={styles.plantPreviewGP}>GP: {plant.growthPoints}</Text>
+              </View>
+            ))}
           </View>
-        </View>
+
+          <TouchableOpacity
+            style={[styles.button, styles.interruptButton]}
+            onPress={handleInterrupt}
+          >
+            <Text style={styles.buttonText}>✕ 中断</Text>
+          </TouchableOpacity>
+        </ScrollView>
 
         {/* 結果モーダル */}
         <Modal
           animationType="fade"
           transparent={true}
           visible={resultModalVisible}
-          onRequestClose={() => setResultModalVisible(false)}
+          onRequestClose={handleCloseResultModal}
         >
           <View style={styles.modalOverlay}>
             <View style={styles.resultModal}>
-              {sessionResult?.wasInterrupted ? (
+              {lastSessionResults.length === 0 ? (
                 <>
                   <Text style={styles.resultTitle}>セッション中断</Text>
                   <Text style={styles.resultText}>
-                    GPは獲得できませんでした
+                    経過時間分のGPを獲得しました
                   </Text>
                 </>
               ) : (
                 <>
                   <Text style={styles.resultTitle}>🎉 完了！</Text>
-                  <Text style={styles.resultGP}>
-                    +{sessionResult?.gpGained} GP
-                  </Text>
-                  {sessionResult?.mutation && (
-                    <View style={styles.mutationResult}>
-                      <Text style={styles.mutationTitle}>✨ 突然変異！</Text>
-                      <Text style={styles.mutationName}>
-                        {sessionResult.mutation}
-                      </Text>
-                    </View>
-                  )}
+                  <ScrollView style={styles.resultsList}>
+                    {lastSessionResults.map(result => {
+                      const plant = plants.find(p => p.id === result.plantId);
+                      if (!plant) return null;
+                      
+                      return (
+                        <View key={result.plantId} style={styles.resultItem}>
+                          <Text style={styles.resultPlantName}>{plant.name}</Text>
+                          <Text style={styles.resultGP}>+{result.earnedGP} GP</Text>
+                          {result.newMutation && (
+                            <View style={styles.mutationResult}>
+                              <Text style={styles.mutationTitle}>✨ 突然変異！</Text>
+                              <Text style={styles.mutationName}>
+                                {result.newMutation}
+                              </Text>
+                            </View>
+                          )}
+                        </View>
+                      );
+                    })}
+                  </ScrollView>
                 </>
               )}
 
               <TouchableOpacity
                 style={[styles.button, styles.closeButton]}
-                onPress={() => setResultModalVisible(false)}
+                onPress={handleCloseResultModal}
               >
                 <Text style={styles.buttonText}>閉じる</Text>
               </TouchableOpacity>
@@ -225,19 +222,22 @@ export default function FocusScreen() {
           </View>
         ) : (
           <>
-            {/* 植物選択 */}
+            {/* 育成中の植物表示 */}
             <View style={styles.section}>
-              <Text style={styles.sectionLabel}>育てる植物</Text>
-              <TouchableOpacity
-                style={styles.selectButton}
-                onPress={() => setSelectPlantModalVisible(true)}
-              >
-                <Text style={styles.selectButtonText}>
-                  {selectedPlantId
-                    ? plants.find(p => p.id === selectedPlantId)?.name
-                    : '植物を選択'}
-                </Text>
-              </TouchableOpacity>
+              <Text style={styles.sectionLabel}>
+                育成中の植物（{plants.length}個）
+              </Text>
+              <View style={styles.plantsList}>
+                {plants.map(plant => (
+                  <View key={plant.id} style={styles.plantItem}>
+                    <Text style={styles.plantItemName}>{plant.name}</Text>
+                    <Text style={styles.plantItemGP}>GP: {plant.growthPoints}</Text>
+                  </View>
+                ))}
+              </View>
+              <Text style={styles.infoLabelSmall}>
+                ※ セッション中は全ての植物が同時に育ちます
+              </Text>
             </View>
 
             {/* セッション時間選択 */}
@@ -278,57 +278,14 @@ export default function FocusScreen() {
 
             {/* 開始ボタン */}
             <TouchableOpacity
-              style={[
-                styles.button,
-                styles.startButton,
-                !selectedPlantId && styles.buttonDisabled,
-              ]}
+              style={[styles.button, styles.startButton]}
               onPress={handleStartSession}
-              disabled={!selectedPlantId}
             >
               <Text style={styles.buttonText}>セッション開始</Text>
             </TouchableOpacity>
           </>
         )}
       </ScrollView>
-
-      {/* 植物選択モーダル */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={selectPlantModalVisible}
-        onRequestClose={() => setSelectPlantModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>植物を選択</Text>
-            <ScrollView style={styles.plantList}>
-              {plants.map(plant => (
-                <TouchableOpacity
-                  key={plant.id}
-                  style={[
-                    styles.plantItem,
-                    selectedPlantId === plant.id && styles.plantItemSelected,
-                  ]}
-                  onPress={() => {
-                    setSelectedPlantId(plant.id);
-                    setSelectPlantModalVisible(false);
-                  }}
-                >
-                  <Text style={styles.plantItemName}>{plant.name}</Text>
-                  <Text style={styles.plantItemGP}>GP: {plant.growthPoints}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <TouchableOpacity
-              style={[styles.button, styles.cancelButton]}
-              onPress={() => setSelectPlantModalVisible(false)}
-            >
-              <Text style={styles.buttonText}>キャンセル</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -342,10 +299,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   activeSessionContainer: {
-    flex: 1,
     padding: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   title: {
     fontSize: 28,
@@ -358,12 +312,14 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#2e7d32',
-    marginBottom: 8,
+    marginBottom: 4,
+    textAlign: 'center',
   },
-  plantName: {
-    fontSize: 20,
+  subtitle: {
+    fontSize: 16,
     color: '#666',
     marginBottom: 32,
+    textAlign: 'center',
   },
   section: {
     marginBottom: 24,
@@ -374,16 +330,26 @@ const styles = StyleSheet.create({
     color: '#333',
     marginBottom: 12,
   },
-  selectButton: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#ddd',
+  plantsList: {
+    marginBottom: 8,
   },
-  selectButtonText: {
+  plantItem: {
+    backgroundColor: '#fff',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  plantItemName: {
     fontSize: 16,
+    fontWeight: '600',
     color: '#333',
+  },
+  plantItemGP: {
+    fontSize: 14,
+    color: '#666',
   },
   timeOptions: {
     flexDirection: 'row',
@@ -435,24 +401,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#4caf50',
     marginTop: 24,
   },
-  buttonDisabled: {
-    backgroundColor: '#ccc',
-  },
-  completeButton: {
-    backgroundColor: '#4caf50',
-    flex: 1,
-    marginRight: 8,
-  },
   interruptButton: {
     backgroundColor: '#f44336',
-    flex: 1,
-    marginLeft: 8,
-  },
-  cancelButton: {
-    backgroundColor: '#999',
+    marginTop: 24,
   },
   closeButton: {
     backgroundColor: '#4caf50',
+    marginTop: 16,
   },
   timerContainer: {
     alignItems: 'center',
@@ -494,16 +449,45 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     width: '100%',
-    marginBottom: 32,
+    marginBottom: 24,
   },
   infoLabel: {
     fontSize: 14,
     color: '#666',
     marginBottom: 4,
   },
-  actionButtons: {
-    flexDirection: 'row',
+  infoLabelSmall: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
+  },
+  plantsPreview: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 12,
     width: '100%',
+    marginBottom: 16,
+  },
+  plantsPreviewTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
+  },
+  plantPreviewItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  plantPreviewName: {
+    fontSize: 14,
+    color: '#333',
+  },
+  plantPreviewGP: {
+    fontSize: 14,
+    color: '#666',
   },
   emptyState: {
     flex: 1,
@@ -527,83 +511,61 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  modalContent: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
-    width: '80%',
-    maxHeight: '70%',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
-  },
-  plantList: {
-    maxHeight: 300,
-    marginBottom: 16,
-  },
-  plantItem: {
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: '#f5f5f5',
-    marginBottom: 8,
-  },
-  plantItemSelected: {
-    backgroundColor: '#e8f5e9',
-    borderWidth: 2,
-    borderColor: '#4caf50',
-  },
-  plantItemName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  plantItemGP: {
-    fontSize: 14,
-    color: '#666',
-  },
   resultModal: {
     backgroundColor: '#fff',
     borderRadius: 16,
-    padding: 32,
-    width: '80%',
-    alignItems: 'center',
+    padding: 24,
+    width: '85%',
+    maxHeight: '70%',
   },
   resultTitle: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#2e7d32',
     marginBottom: 16,
+    textAlign: 'center',
   },
   resultText: {
     fontSize: 16,
     color: '#666',
     marginBottom: 24,
+    textAlign: 'center',
+  },
+  resultsList: {
+    maxHeight: 300,
+  },
+  resultItem: {
+    backgroundColor: '#f5f5f5',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  resultPlantName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
   },
   resultGP: {
-    fontSize: 48,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#4caf50',
-    marginBottom: 24,
+    marginBottom: 8,
   },
   mutationResult: {
     backgroundColor: '#f3e5f5',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 24,
-    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 8,
   },
   mutationTitle: {
-    fontSize: 20,
+    fontSize: 14,
     fontWeight: 'bold',
     color: '#9c27b0',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   mutationName: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#7b1fa2',
   },
 });

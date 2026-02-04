@@ -77,8 +77,9 @@ export class AsyncStorageSessionRepository implements SessionRepository {
   }
 
   async getSessionsByPlantId(plantId: string): Promise<FocusSession[]> {
-    const sessions = await this.getAllSessions();
-    return sessions.filter(s => s.plantId === plantId);
+    // 全植物対応版では植物IDでの絞り込みは廃止
+    // 互換性のため空配列を返す
+    return [];
   }
 
   async getActiveSession(): Promise<FocusSession | null> {

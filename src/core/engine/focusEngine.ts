@@ -10,6 +10,7 @@ import {
   FocusSession,
   SessionStatus,
   SessionResult,
+  PlantSessionResult,
   StartSessionParams,
   SessionMinutes,
   MutationId,
@@ -34,13 +35,10 @@ export function startSession(
 ): FocusSession {
   return {
     id: generateId(),
-    plantId: params.plantId,
     minutes: params.minutes,
     status: 'active',
     startedAt: currentTime,
     endedAt: null,
-    earnedGP: 0,
-    newMutation: null,
   };
 }
 
@@ -74,70 +72,99 @@ export function isSessionCompleted(session: FocusSession, currentTime: number): 
 }
 
 /**
- * セッションを完走させる
+ * セッションを完走させる（全植物対応）
  * @param session セッション
- * @param plant 植物個体
+ * @param plants 育成中の全植物
  * @param currentTime 現在時刻
  * @param rng 乱数生成器
- * @returns 更新されたセッション
+ * @returns 更新されたセッションと植物の結果
  */
 export function completeSession(
   session: FocusSession,
-  plant: Plant,
+  plants: Plant[],
   currentTime: number,
   rng: RNG = defaultRNG
-): FocusSession {
+): { session: FocusSession; plantResults: PlantSessionResult[] } {
   if (session.status !== 'active') {
     throw new Error('Cannot complete non-active session');
   }
   
-  const elapsed = calculateElapsed(session, currentTime);
-  const earnedGP = calcGrowthPoints(elapsed);
+  // 各植物の結果を計算
+  const plantResults: PlantSessionResult[] = plants.map(plant => {
+    const earnedGP = calcGrowthPoints(session.minutes);
+    const newMutation = rollMutation(plant, session.minutes, rng);
+    
+    return {
+      plantId: plant.id,
+      earnedGP,
+      newMutation,
+    };
+  });
   
-  // 突然変異抽選（完走時のみ）
-  const newMutation = rollMutation(plant, session.minutes, rng);
-  
-  return {
+  const updatedSession: FocusSession = {
     ...session,
     status: 'completed',
     endedAt: currentTime,
-    earnedGP,
-    newMutation,
+  };
+  
+  return {
+    session: updatedSession,
+    plantResults,
   };
 }
 
 /**
- * セッションを中断する
+ * セッションを中断する（全植物対応）
  * @param session セッション
+ * @param plants 育成中の全植物
  * @param currentTime 現在時刻
- * @returns 更新されたセッション
+ * @returns 更新されたセッションと植物の結果
  */
 export function interruptSession(
   session: FocusSession,
+  plants: Plant[],
   currentTime: number
-): FocusSession {
+): { session: FocusSession; plantResults: PlantSessionResult[] } {
   if (session.status !== 'active') {
     throw new Error('Cannot interrupt non-active session');
   }
   
   const elapsed = calculateElapsed(session, currentTime);
-  const earnedGP = calcGrowthPoints(elapsed);
+  const elapsedMinutes = elapsed / 1000 / 60;
   
-  return {
+  // 各植物の結果を計算（経過時間分のGPのみ）
+  const plantResults: PlantSessionResult[] = plants.map(plant => {
+    const earnedGP = calcGrowthPoints(elapsedMinutes);
+    
+    return {
+      plantId: plant.id,
+      earnedGP,
+      newMutation: null, // 中断時は突然変異なし
+    };
+  });
+  
+  const updatedSession: FocusSession = {
     ...session,
     status: 'interrupted',
     endedAt: currentTime,
-    earnedGP,
-    newMutation: null, // 中断時は突然変異なし
+  };
+  
+  return {
+    session: updatedSession,
+    plantResults,
   };
 }
 
 /**
  * セッション結果を取得
  * @param session セッション
+ * @param plantResults 植物の結果
  * @returns セッション結果
  */
-export function getSessionResult(session: FocusSession): SessionResult {
+export function getSessionResult(
+  session: FocusSession,
+  plantResults: PlantSessionResult[]
+): SessionResult {
   if (!session.endedAt || !session.startedAt) {
     throw new Error('Session not ended');
   }
@@ -146,10 +173,9 @@ export function getSessionResult(session: FocusSession): SessionResult {
   const elapsedMinutes = elapsedMs / 1000 / 60;
   
   return {
-    earnedGP: session.earnedGP,
-    newMutation: session.newMutation,
     completedSuccessfully: session.status === 'completed',
     elapsedMinutes,
+    plantResults,
   };
 }
 
@@ -158,24 +184,41 @@ export function getSessionResult(session: FocusSession): SessionResult {
 // ========================================
 
 /**
- * セッション結果を植物に適用
+ * 植物の結果を植物に適用
  * @param plant 植物個体
- * @param result セッション結果
+ * @param plantResult 植物の結果
  * @returns 更新された植物個体
  */
-export function applySessionResult(plant: Plant, result: SessionResult): Plant {
+export function applyPlantResult(plant: Plant, plantResult: PlantSessionResult): Plant {
   let updated: Plant = {
     ...plant,
-    growthPoints: plant.growthPoints + result.earnedGP,
+    growthPoints: plant.growthPoints + plantResult.earnedGP,
     updatedAt: now(),
   };
   
   // 突然変異を獲得した場合は追加
-  if (result.newMutation) {
-    updated = addMutation(updated, result.newMutation);
+  if (plantResult.newMutation) {
+    updated = addMutation(updated, plantResult.newMutation);
   }
   
   return updated;
+}
+
+/**
+ * 複数の植物に結果を適用
+ * @param plants 植物リスト
+ * @param plantResults 植物の結果リスト
+ * @returns 更新された植物リスト
+ */
+export function applySessionResults(
+  plants: Plant[],
+  plantResults: PlantSessionResult[]
+): Plant[] {
+  return plants.map(plant => {
+    const result = plantResults.find(r => r.plantId === plant.id);
+    if (!result) return plant;
+    return applyPlantResult(plant, result);
+  });
 }
 
 // ========================================
