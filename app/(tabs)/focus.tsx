@@ -53,11 +53,11 @@ export default function FocusScreen() {
     }
 
     try {
-      // 前回の結果をクリア（バグ修正）
+      // 前回の結果をクリア
       clearSessionResults();
       
       await startSession(selectedMinutes);
-      Alert.alert('開始！', `${selectedMinutes}分のセッションを開始しました\n全ての植物が育ちます`);
+      // 開始ダイアログ削除（即座にセッション画面に遷移）
     } catch (error) {
       Alert.alert('エラー', 'セッションの開始に失敗しました');
     }
