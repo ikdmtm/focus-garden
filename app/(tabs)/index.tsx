@@ -153,6 +153,45 @@ export default function HomeScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.slotsContainer}>
+        {/* 種インベントリ */}
+        <View style={styles.inventorySection}>
+          <View style={styles.inventoryHeader}>
+            <Text style={styles.inventoryTitle}>🌱 持っている種</Text>
+            <Text style={styles.inventoryCount}>{seeds.length}個</Text>
+          </View>
+          
+          {seeds.length === 0 ? (
+            <View style={styles.emptyInventory}>
+              <Text style={styles.emptyText}>まだ種がありません</Text>
+              <Text style={styles.emptySubtext}>ガチャで種を入手しましょう！</Text>
+            </View>
+          ) : (
+            <ScrollView 
+              horizontal 
+              showsHorizontalScrollIndicator={false}
+              style={styles.seedsHorizontalList}
+            >
+              {seeds.map(seed => {
+                const species = getSpeciesById(seed.speciesId);
+                if (!species) return null;
+                
+                return (
+                  <View key={seed.id} style={styles.seedCard}>
+                    <View style={[styles.rarityBadge, styles[`rarity${species.rarity}`]]}>
+                      <Text style={styles.rarityText}>
+                        {species.rarity === 'common' ? 'C' : species.rarity === 'rare' ? 'R' : 'E'}
+                      </Text>
+                    </View>
+                    <Text style={styles.seedCardName}>{species.name}</Text>
+                    <Text style={styles.seedCardCategory}>{species.category}</Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          )}
+        </View>
+
+        {/* 育成枠 */}
         {Array.from({ length: maxSlots }, (_, i) => renderSlot(i))}
       </ScrollView>
 
@@ -237,6 +276,70 @@ const styles = StyleSheet.create({
   },
   slotsContainer: {
     padding: 16,
+  },
+  inventorySection: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  inventoryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  inventoryTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  inventoryCount: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#666',
+  },
+  emptyInventory: {
+    padding: 24,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 14,
+    color: '#999',
+    marginBottom: 4,
+  },
+  emptySubtext: {
+    fontSize: 12,
+    color: '#bbb',
+  },
+  seedsHorizontalList: {
+    flexDirection: 'row',
+  },
+  seedCard: {
+    backgroundColor: '#f5f5f5',
+    borderRadius: 12,
+    padding: 12,
+    marginRight: 12,
+    width: 120,
+    alignItems: 'center',
+  },
+  seedCardName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 8,
+    marginBottom: 2,
+    textAlign: 'center',
+  },
+  seedCardCategory: {
+    fontSize: 10,
+    color: '#666',
+    textAlign: 'center',
   },
   slotCard: {
     marginBottom: 16,
