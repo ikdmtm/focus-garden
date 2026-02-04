@@ -53,6 +53,9 @@ export default function FocusScreen() {
     }
 
     try {
+      // 前回の結果をクリア（バグ修正）
+      clearSessionResults();
+      
       await startSession(selectedMinutes);
       Alert.alert('開始！', `${selectedMinutes}分のセッションを開始しました\n全ての植物が育ちます`);
     } catch (error) {
