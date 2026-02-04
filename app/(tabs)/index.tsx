@@ -1,10 +1,12 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Modal,
+  Alert,
 } from 'react-native';
 import { usePlantsStore } from '@/features/plants/usePlantsStore';
 import { calcGrowthPercentage, isFullyGrown } from '@core/domain/rules';
@@ -12,12 +14,46 @@ import { getPlantFullName } from '@/features/plants/helpers';
 import { getSpeciesById } from '@core/domain/species';
 
 export default function HomeScreen() {
-  const { plants, maxSlots, loadPlants, loadMaxSlots } = usePlantsStore();
+  const { plants, seeds, maxSlots, loadPlants, loadSeeds, loadMaxSlots, plantSeed } = usePlantsStore();
+  
+  const [selectSeedModalVisible, setSelectSeedModalVisible] = useState(false);
+  const [selectedSlotIndex, setSelectedSlotIndex] = useState<number | null>(null);
 
   useEffect(() => {
     loadPlants();
+    loadSeeds();
     loadMaxSlots();
   }, []);
+
+  const handleSlotPress = (slotIndex: number) => {
+    const plant = getPlantForSlot(slotIndex);
+    
+    if (!plant) {
+      // 空き枠をタップ → 種を選択
+      if (seeds.length === 0) {
+        Alert.alert('種がありません', 'ガチャで種を入手してください');
+        return;
+      }
+      setSelectedSlotIndex(slotIndex);
+      setSelectSeedModalVisible(true);
+    } else {
+      // 植物がある枠をタップ → 詳細表示（将来実装）
+      Alert.alert('詳細表示', '植物詳細画面は未実装です');
+    }
+  };
+
+  const handlePlantSeed = async (seedId: string) => {
+    if (selectedSlotIndex === null) return;
+
+    try {
+      await plantSeed(seedId, selectedSlotIndex);
+      setSelectSeedModalVisible(false);
+      setSelectedSlotIndex(null);
+      Alert.alert('成功', '種を植えました！');
+    } catch (error) {
+      Alert.alert('エラー', '種を植えることができませんでした');
+    }
+  };
 
   // 枠ごとの植物を取得
   const getPlantForSlot = (slotIndex: number) => {
@@ -30,13 +66,17 @@ export default function HomeScreen() {
     if (!plant) {
       // 空き枠
       return (
-        <View key={slotIndex} style={styles.slotCard}>
+        <TouchableOpacity
+          key={slotIndex}
+          style={styles.slotCard}
+          onPress={() => handleSlotPress(slotIndex)}
+        >
           <View style={styles.emptySlot}>
             <Text style={styles.slotNumber}>枠 {slotIndex + 1}</Text>
             <Text style={styles.emptySlotText}>空き枠</Text>
-            <Text style={styles.emptySlotSubtext}>種を植えて育てよう</Text>
+            <Text style={styles.emptySlotSubtext}>タップして種を植える</Text>
           </View>
-        </View>
+        </TouchableOpacity>
       );
     }
 
@@ -46,7 +86,11 @@ export default function HomeScreen() {
     const fullyGrown = isFullyGrown(plant.growthPoints);
 
     return (
-      <View key={slotIndex} style={styles.slotCard}>
+      <TouchableOpacity
+        key={slotIndex}
+        style={styles.slotCard}
+        onPress={() => handleSlotPress(slotIndex)}
+      >
         <View style={styles.plantSlot}>
           <View style={styles.slotHeader}>
             <Text style={styles.slotNumber}>枠 {slotIndex + 1}</Text>
@@ -97,7 +141,7 @@ export default function HomeScreen() {
 
           <Text style={styles.debugGP}>GP: {plant.growthPoints}</Text>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -111,6 +155,58 @@ export default function HomeScreen() {
       <ScrollView contentContainerStyle={styles.slotsContainer}>
         {Array.from({ length: maxSlots }, (_, i) => renderSlot(i))}
       </ScrollView>
+
+      {/* 種選択モーダル */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={selectSeedModalVisible}
+        onRequestClose={() => {
+          setSelectSeedModalVisible(false);
+          setSelectedSlotIndex(null);
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>種を選択</Text>
+            
+            <ScrollView style={styles.seedsModalList}>
+              {seeds.map(seed => {
+                const species = getSpeciesById(seed.speciesId);
+                if (!species) return null;
+                
+                return (
+                  <TouchableOpacity
+                    key={seed.id}
+                    style={styles.seedModalItem}
+                    onPress={() => handlePlantSeed(seed.id)}
+                  >
+                    <View style={styles.seedModalInfo}>
+                      <Text style={styles.seedModalName}>{species.name}</Text>
+                      <Text style={styles.seedModalCategory}>{species.category}</Text>
+                    </View>
+                    <View style={[styles.rarityBadge, styles[`rarity${species.rarity}`]]}>
+                      <Text style={styles.rarityText}>
+                        {species.rarity === 'common' ? 'C' : species.rarity === 'rare' ? 'R' : 'E'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => {
+                setSelectSeedModalVisible(false);
+                setSelectedSlotIndex(null);
+              }}
+            >
+              <Text style={styles.cancelButtonText}>キャンセル</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -270,5 +366,61 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
     textAlign: 'right',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '85%',
+    maxHeight: '70%',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 16,
+  },
+  seedsModalList: {
+    maxHeight: 300,
+    marginBottom: 16,
+  },
+  seedModalItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  seedModalInfo: {
+    flex: 1,
+  },
+  seedModalName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 2,
+  },
+  seedModalCategory: {
+    fontSize: 12,
+    color: '#666',
+  },
+  cancelButton: {
+    backgroundColor: '#999',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
   },
 });
