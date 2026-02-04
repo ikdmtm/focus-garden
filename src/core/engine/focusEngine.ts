@@ -129,16 +129,11 @@ export function interruptSession(
     throw new Error('Cannot interrupt non-active session');
   }
   
-  const elapsed = calculateElapsed(session, currentTime);
-  const elapsedMinutes = elapsed / 1000 / 60;
-  
-  // 各植物の結果を計算（経過時間分のGPのみ）
+  // 中断時はGP獲得なし（仕様変更）
   const plantResults: PlantSessionResult[] = plants.map(plant => {
-    const earnedGP = calcGrowthPoints(elapsedMinutes);
-    
     return {
       plantId: plant.id,
-      earnedGP,
+      earnedGP: 0, // 中断時はGPゼロ
       newMutation: null, // 中断時は突然変異なし
     };
   });

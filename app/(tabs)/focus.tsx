@@ -67,7 +67,7 @@ export default function FocusScreen() {
   const handleInterrupt = () => {
     Alert.alert(
       '中断しますか？',
-      '経過時間分のGPは獲得できますが、突然変異抽選はありません',
+      'セッションを中断すると、成長ポイントは獲得できません',
       [
         { text: 'キャンセル', style: 'cancel' },
         {
@@ -76,6 +76,8 @@ export default function FocusScreen() {
           onPress: async () => {
             try {
               await interruptCurrentSession();
+              // 中断後すぐにモーダルを表示
+              setResultModalVisible(true);
             } catch (error) {
               Alert.alert('エラー', 'セッションの中断に失敗しました');
             }
@@ -164,11 +166,11 @@ export default function FocusScreen() {
         >
           <View style={styles.modalOverlay}>
             <View style={styles.resultModal}>
-              {lastSessionResults.length === 0 ? (
+              {lastSessionResults.length === 0 || lastSessionResults.every(r => r.earnedGP === 0) ? (
                 <>
                   <Text style={styles.resultTitle}>セッション中断</Text>
                   <Text style={styles.resultText}>
-                    経過時間分のGPを獲得しました
+                    成長ポイントは獲得できませんでした
                   </Text>
                 </>
               ) : (
@@ -183,14 +185,6 @@ export default function FocusScreen() {
                         <View key={result.plantId} style={styles.resultItem}>
                           <Text style={styles.resultPlantName}>{getPlantDisplayName(plant)}</Text>
                           <Text style={styles.resultGP}>+{result.earnedGP} GP</Text>
-                          {result.newMutation && (
-                            <View style={styles.mutationResult}>
-                              <Text style={styles.mutationTitle}>✨ 突然変異！</Text>
-                              <Text style={styles.mutationName}>
-                                {result.newMutation}
-                              </Text>
-                            </View>
-                          )}
                         </View>
                       );
                     })}
