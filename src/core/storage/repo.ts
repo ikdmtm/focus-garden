@@ -82,3 +82,30 @@ export interface SlotRepository {
    */
   setMaxSlots(slots: number): Promise<void>;
 }
+
+export interface GachaRepository {
+  /**
+   * 無料ガチャの使用回数を取得
+   */
+  getFreeGachaCount(): Promise<number>;
+
+  /**
+   * 無料ガチャの使用回数を増やす
+   */
+  incrementFreeGachaCount(): Promise<void>;
+
+  /**
+   * 無料ガチャの使用回数をリセット
+   */
+  resetFreeGachaCount(): Promise<void>;
+
+  /**
+   * 最後にリセットした日付を取得
+   */
+  getLastResetDate(): Promise<number>;
+
+  /**
+   * 最後にリセットした日付を設定
+   */
+  setLastResetDate(date: number): Promise<void>;
+}
