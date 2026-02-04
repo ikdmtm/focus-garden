@@ -161,57 +161,12 @@ export default function FocusScreen() {
             <Text style={styles.buttonText}>✕ 中断</Text>
           </TouchableOpacity>
         </ScrollView>
-
-        {/* 結果モーダル */}
-        <Modal
-          animationType="fade"
-          transparent={true}
-          visible={resultModalVisible}
-          onRequestClose={handleCloseResultModal}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.resultModal}>
-              {lastSessionResults.length === 0 || lastSessionResults.every(r => r.earnedGP === 0) ? (
-                <>
-                  <Text style={styles.resultTitle}>セッション中断</Text>
-                  <Text style={styles.resultText}>
-                    成長ポイントは獲得できませんでした
-                  </Text>
-                </>
-              ) : (
-                <>
-                  <Text style={styles.resultTitle}>🎉 完了！</Text>
-                  <ScrollView style={styles.resultsList}>
-                    {lastSessionResults.map(result => {
-                      const plant = plants.find(p => p.id === result.plantId);
-                      if (!plant) return null;
-                      
-                      return (
-                        <View key={result.plantId} style={styles.resultItem}>
-                          <Text style={styles.resultPlantName}>{getPlantFullName(plant)}</Text>
-                          <Text style={styles.resultGP}>+{result.earnedGP} GP</Text>
-                        </View>
-                      );
-                    })}
-                  </ScrollView>
-                </>
-              )}
-
-              <TouchableOpacity
-                style={[styles.button, styles.closeButton]}
-                onPress={handleCloseResultModal}
-              >
-                <Text style={styles.buttonText}>閉じる</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
       </View>
     );
   }
 
   // セッション開始画面
-  return (
+  const startScreen = (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.startContainer}>
         <Text style={styles.title}>フォーカスセッション</Text>
@@ -220,7 +175,7 @@ export default function FocusScreen() {
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>植物がありません</Text>
             <Text style={styles.emptySubtext}>
-              ホーム画面で植物を作成してください
+              ガチャで種を入手して植物を育てましょう！
             </Text>
           </View>
         ) : (
@@ -289,8 +244,55 @@ export default function FocusScreen() {
           </>
         )}
       </ScrollView>
+
+      {/* 結果モーダル（セッション開始画面で表示） */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={resultModalVisible}
+        onRequestClose={handleCloseResultModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.resultModal}>
+            {lastSessionResults.length === 0 || lastSessionResults.every(r => r.earnedGP === 0) ? (
+              <>
+                <Text style={styles.resultTitle}>セッション中断</Text>
+                <Text style={styles.resultText}>
+                  成長ポイントは獲得できませんでした
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.resultTitle}>🎉 完了！</Text>
+                <ScrollView style={styles.resultsList}>
+                  {lastSessionResults.map(result => {
+                    const plant = plants.find(p => p.id === result.plantId);
+                    if (!plant) return null;
+                    
+                    return (
+                      <View key={result.plantId} style={styles.resultItem}>
+                        <Text style={styles.resultPlantName}>{getPlantFullName(plant)}</Text>
+                        <Text style={styles.resultGP}>+{result.earnedGP} GP</Text>
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+              </>
+            )}
+
+            <TouchableOpacity
+              style={[styles.button, styles.closeButton]}
+              onPress={handleCloseResultModal}
+            >
+              <Text style={styles.buttonText}>閉じる</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
+
+  return startScreen;
 }
 
 const styles = StyleSheet.create({
