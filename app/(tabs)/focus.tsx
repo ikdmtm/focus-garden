@@ -13,6 +13,7 @@ import { usePlantsStore } from '@/features/plants/usePlantsStore';
 import { useSessionInfo, useActivePlants } from '@/features/plants/selectors';
 import { SessionMinutes } from '@core/domain/models';
 import { calcGrowthPoints } from '@core/domain/rules';
+import { getPlantDisplayName } from '@/features/plants/helpers';
 
 const SESSION_OPTIONS: SessionMinutes[] = [10, 25, 45, 60];
 
@@ -140,7 +141,7 @@ export default function FocusScreen() {
             <Text style={styles.plantsPreviewTitle}>育成中の植物</Text>
             {activePlants.map(plant => (
               <View key={plant.id} style={styles.plantPreviewItem}>
-                <Text style={styles.plantPreviewName}>{plant.name}</Text>
+                <Text style={styles.plantPreviewName}>{getPlantDisplayName(plant)}</Text>
                 <Text style={styles.plantPreviewGP}>GP: {plant.growthPoints}</Text>
               </View>
             ))}
@@ -180,7 +181,7 @@ export default function FocusScreen() {
                       
                       return (
                         <View key={result.plantId} style={styles.resultItem}>
-                          <Text style={styles.resultPlantName}>{plant.name}</Text>
+                          <Text style={styles.resultPlantName}>{getPlantDisplayName(plant)}</Text>
                           <Text style={styles.resultGP}>+{result.earnedGP} GP</Text>
                           {result.newMutation && (
                             <View style={styles.mutationResult}>
@@ -233,7 +234,7 @@ export default function FocusScreen() {
               <View style={styles.plantsList}>
                 {plants.map(plant => (
                   <View key={plant.id} style={styles.plantItem}>
-                    <Text style={styles.plantItemName}>{plant.name}</Text>
+                    <Text style={styles.plantItemName}>{getPlantDisplayName(plant)}</Text>
                     <Text style={styles.plantItemGP}>GP: {plant.growthPoints}</Text>
                   </View>
                 ))}

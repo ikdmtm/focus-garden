@@ -3,8 +3,8 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Plant, FocusSession } from '../domain/models';
-import { PlantRepository, SessionRepository } from './repo';
+import { Plant, FocusSession, Seed } from '../domain/models';
+import { PlantRepository, SessionRepository, SeedRepository, SlotRepository } from './repo';
 import { STORAGE_KEYS } from './schema';
 
 // ========================================
@@ -128,8 +128,75 @@ export class AsyncStorageSessionRepository implements SessionRepository {
 }
 
 // ========================================
+// SeedRepository実装
+// ========================================
+
+export class AsyncStorageSeedRepository implements SeedRepository {
+  async getAllSeeds(): Promise<Seed[]> {
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.SEEDS);
+      if (!data) return [];
+      return JSON.parse(data) as Seed[];
+    } catch (error) {
+      console.error('Failed to get seeds:', error);
+      return [];
+    }
+  }
+
+  async addSeed(seed: Seed): Promise<void> {
+    try {
+      const seeds = await this.getAllSeeds();
+      seeds.push(seed);
+      await AsyncStorage.setItem(STORAGE_KEYS.SEEDS, JSON.stringify(seeds));
+    } catch (error) {
+      console.error('Failed to add seed:', error);
+      throw error;
+    }
+  }
+
+  async removeSeed(seedId: string): Promise<void> {
+    try {
+      const seeds = await this.getAllSeeds();
+      const filtered = seeds.filter(s => s.id !== seedId);
+      await AsyncStorage.setItem(STORAGE_KEYS.SEEDS, JSON.stringify(filtered));
+    } catch (error) {
+      console.error('Failed to remove seed:', error);
+      throw error;
+    }
+  }
+}
+
+// ========================================
+// SlotRepository実装
+// ========================================
+
+export class AsyncStorageSlotRepository implements SlotRepository {
+  async getMaxSlots(): Promise<number> {
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.MAX_SLOTS);
+      if (!data) return 3; // デフォルト3枠
+      return parseInt(data, 10);
+    } catch (error) {
+      console.error('Failed to get max slots:', error);
+      return 3;
+    }
+  }
+
+  async setMaxSlots(slots: number): Promise<void> {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.MAX_SLOTS, slots.toString());
+    } catch (error) {
+      console.error('Failed to set max slots:', error);
+      throw error;
+    }
+  }
+}
+
+// ========================================
 // デフォルトインスタンス
 // ========================================
 
 export const plantRepository = new AsyncStoragePlantRepository();
 export const sessionRepository = new AsyncStorageSessionRepository();
+export const seedRepository = new AsyncStorageSeedRepository();
+export const slotRepository = new AsyncStorageSlotRepository();

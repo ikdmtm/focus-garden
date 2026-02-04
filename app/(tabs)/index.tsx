@@ -13,6 +13,8 @@ import { usePlantsStore } from '@/features/plants/usePlantsStore';
 import { useSortedPlants } from '@/features/plants/selectors';
 import { calcGrowthPercentage, isFullyGrown } from '@core/domain/rules';
 import { Plant } from '@core/domain/models';
+import { getPlantDisplayName } from '@/features/plants/helpers';
+import { PLANT_SPECIES } from '@core/domain/species';
 
 export default function HomeScreen() {
   const plants = useSortedPlants();
@@ -32,7 +34,15 @@ export default function HomeScreen() {
     }
 
     try {
-      await createPlant({ name: newPlantName.trim() });
+      // 一時的にデフォルトの植物種（エケベリア）を使用
+      const defaultSpecies = PLANT_SPECIES[0];
+      const nextSlotIndex = plants.length; // 簡易的に次の枠番号
+      
+      await createPlant({ 
+        speciesId: defaultSpecies.id,
+        slotIndex: nextSlotIndex,
+        nickname: newPlantName.trim(),
+      });
       setNewPlantName('');
       setModalVisible(false);
       Alert.alert('成功', `${newPlantName}を作成しました！`);
@@ -44,11 +54,12 @@ export default function HomeScreen() {
   const renderPlant = ({ item }: { item: Plant }) => {
     const growthPercentage = calcGrowthPercentage(item.growthPoints);
     const fullyGrown = isFullyGrown(item.growthPoints);
+    const displayName = getPlantDisplayName(item);
 
     return (
       <View style={styles.plantCard}>
         <View style={styles.plantInfo}>
-          <Text style={styles.plantName}>{item.name}</Text>
+          <Text style={styles.plantName}>{displayName}</Text>
           <Text style={styles.plantGP}>GP: {item.growthPoints}</Text>
           <Text style={styles.plantGrowth}>
             成長度: {growthPercentage.toFixed(1)}%

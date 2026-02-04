@@ -84,10 +84,12 @@ describe('突然変異抽選回数', () => {
 describe('突然変異抽選', () => {
   const mockPlant: Plant = {
     id: 'test-plant',
-    name: 'テスト植物',
+    speciesId: 'echeveria',
+    slotIndex: 0,
+    nickname: 'テスト植物',
     growthPoints: 50,
     mutations: [],
-    createdAt: Date.now(),
+    plantedAt: Date.now(),
     updatedAt: Date.now(),
   };
 
@@ -135,10 +137,12 @@ describe('突然変異抽選', () => {
 describe('突然変異追加', () => {
   const mockPlant: Plant = {
     id: 'test-plant',
-    name: 'テスト植物',
+    speciesId: 'echeveria',
+    slotIndex: 0,
+    nickname: 'テスト植物',
     growthPoints: 50,
     mutations: [],
-    createdAt: 1000,
+    plantedAt: 1000,
     updatedAt: 1000,
   };
 

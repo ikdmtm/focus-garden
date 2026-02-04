@@ -35,10 +35,12 @@ export const ALL_SESSION_MINUTES: readonly SessionMinutes[] = [
 // ========================================
 export interface Plant {
   id: string;                           // 個体ID（UUID等）
-  name: string;                         // 個体名（ユーザーが命名）
+  speciesId: string;                    // 植物種のID
+  slotIndex: number;                    // 育成枠のインデックス（0-8）
+  nickname: string | null;              // ニックネーム（ユーザーが命名、オプション）
   growthPoints: number;                 // 成長ポイント（GP）
   mutations: MutationId[];              // 保持している突然変異のリスト
-  createdAt: number;                    // 作成日時（UNIX timestamp）
+  plantedAt: number;                    // 植えた日時（UNIX timestamp）
   updatedAt: number;                    // 更新日時（UNIX timestamp）
 }
 
@@ -75,10 +77,21 @@ export interface SessionResult {
 }
 
 // ========================================
+// 種（Seed）
+// ========================================
+export interface Seed {
+  id: string;                           // 種のID
+  speciesId: string;                    // 植物種のID
+  obtainedAt: number;                   // 入手日時（UNIX timestamp）
+}
+
+// ========================================
 // 植物作成時のパラメータ
 // ========================================
 export interface CreatePlantParams {
-  name: string;
+  speciesId: string;                    // 植物種のID
+  slotIndex: number;                    // 植える枠のインデックス
+  nickname?: string;                    // ニックネーム（オプション）
 }
 
 // ========================================

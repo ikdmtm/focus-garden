@@ -4,9 +4,10 @@
  */
 
 import { create } from 'zustand';
-import { Plant, FocusSession, SessionMinutes, CreatePlantParams, PlantSessionResult } from '@core/domain/models';
+import { Plant, FocusSession, SessionMinutes, CreatePlantParams, PlantSessionResult, Seed } from '@core/domain/models';
 import { generateId, now } from '@core/domain/ids';
-import { plantRepository, sessionRepository } from '@core/storage/repo.async';
+import { plantRepository, sessionRepository, seedRepository, slotRepository } from '@core/storage/repo.async';
+import { getSpeciesById, PLANT_SPECIES } from '@core/domain/species';
 import {
   startSession as engineStartSession,
   completeSession,
@@ -20,6 +21,8 @@ import {
 interface PlantsState {
   // State
   plants: Plant[];
+  seeds: Seed[];
+  maxSlots: number;
   activeSession: FocusSession | null;
   lastSessionResults: PlantSessionResult[];  // 直前のセッション結果（結果モーダル用）
   loading: boolean;
@@ -27,8 +30,11 @@ interface PlantsState {
 
   // Actions
   loadPlants: () => Promise<void>;
+  loadSeeds: () => Promise<void>;
+  loadMaxSlots: () => Promise<void>;
   createPlant: (params: CreatePlantParams) => Promise<Plant>;
   deletePlant: (id: string) => Promise<void>;
+  plantSeed: (seedId: string, slotIndex: number, nickname?: string) => Promise<Plant>;
   
   // Session Actions
   startSession: (minutes: SessionMinutes) => Promise<void>;
@@ -45,6 +51,8 @@ interface PlantsState {
 export const usePlantsStore = create<PlantsState>((set, get) => ({
   // Initial State
   plants: [],
+  seeds: [],
+  maxSlots: 3,
   activeSession: null,
   lastSessionResults: [],
   loading: false,
@@ -62,16 +70,39 @@ export const usePlantsStore = create<PlantsState>((set, get) => ({
     }
   },
 
-  // Create new plant
+  // Load seeds
+  loadSeeds: async () => {
+    set({ loading: true, error: null });
+    try {
+      const seeds = await seedRepository.getAllSeeds();
+      set({ seeds, loading: false });
+    } catch (error) {
+      set({ error: (error as Error).message, loading: false });
+    }
+  },
+
+  // Load max slots
+  loadMaxSlots: async () => {
+    try {
+      const maxSlots = await slotRepository.getMaxSlots();
+      set({ maxSlots });
+    } catch (error) {
+      set({ error: (error as Error).message });
+    }
+  },
+
+  // Create new plant (一時的に後方互換性のため残す)
   createPlant: async (params: CreatePlantParams) => {
     set({ loading: true, error: null });
     try {
       const plant: Plant = {
         id: generateId(),
-        name: params.name,
+        speciesId: params.speciesId,
+        slotIndex: params.slotIndex,
+        nickname: params.nickname || null,
         growthPoints: 0,
         mutations: [],
-        createdAt: now(),
+        plantedAt: now(),
         updatedAt: now(),
       };
       
@@ -79,6 +110,57 @@ export const usePlantsStore = create<PlantsState>((set, get) => ({
       
       const plants = [...get().plants, plant];
       set({ plants, loading: false });
+      
+      return plant;
+    } catch (error) {
+      set({ error: (error as Error).message, loading: false });
+      throw error;
+    }
+  },
+
+  // Plant a seed
+  plantSeed: async (seedId: string, slotIndex: number, nickname?: string) => {
+    set({ loading: true, error: null });
+    try {
+      const { seeds, plants, maxSlots } = get();
+      
+      // 種を探す
+      const seed = seeds.find(s => s.id === seedId);
+      if (!seed) {
+        throw new Error('種が見つかりません');
+      }
+      
+      // 枠のチェック
+      if (slotIndex < 0 || slotIndex >= maxSlots) {
+        throw new Error('無効な枠です');
+      }
+      
+      // 枠が空いているかチェック
+      if (plants.find(p => p.slotIndex === slotIndex)) {
+        throw new Error('この枠は既に使用されています');
+      }
+      
+      // 植物を作成
+      const plant: Plant = {
+        id: generateId(),
+        speciesId: seed.speciesId,
+        slotIndex,
+        nickname: nickname || null,
+        growthPoints: 0,
+        mutations: [],
+        plantedAt: now(),
+        updatedAt: now(),
+      };
+      
+      // 保存
+      await plantRepository.savePlant(plant);
+      await seedRepository.removeSeed(seedId);
+      
+      // 状態更新
+      const updatedPlants = [...plants, plant];
+      const updatedSeeds = seeds.filter(s => s.id !== seedId);
+      
+      set({ plants: updatedPlants, seeds: updatedSeeds, loading: false });
       
       return plant;
     } catch (error) {
