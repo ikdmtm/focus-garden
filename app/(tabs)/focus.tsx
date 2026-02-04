@@ -40,9 +40,10 @@ export default function FocusScreen() {
     return () => clearInterval(interval);
   }, [isActive]);
 
-  // セッション結果があれば自動でモーダル表示
+  // セッション結果があれば自動でモーダル表示（完了時のみ）
   useEffect(() => {
-    if (lastSessionResults.length > 0 && !isActive) {
+    if (lastSessionResults.length > 0 && !isActive && lastSessionResults.some(r => r.earnedGP > 0)) {
+      // GP獲得がある場合のみ自動表示（完了時）
       setResultModalVisible(true);
     }
   }, [lastSessionResults, isActive]);

@@ -1,13 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
-  TouchableOpacity,
-  TextInput,
-  Modal,
-  Alert,
 } from 'react-native';
 import { usePlantsStore } from '@/features/plants/usePlantsStore';
 import { useSortedPlants } from '@/features/plants/selectors';
@@ -18,38 +14,11 @@ import { PLANT_SPECIES } from '@core/domain/species';
 
 export default function HomeScreen() {
   const plants = useSortedPlants();
-  const { loadPlants, createPlant, loading } = usePlantsStore();
-  
-  const [modalVisible, setModalVisible] = useState(false);
-  const [newPlantName, setNewPlantName] = useState('');
+  const { loadPlants } = usePlantsStore();
 
   useEffect(() => {
     loadPlants();
   }, []);
-
-  const handleCreatePlant = async () => {
-    if (!newPlantName.trim()) {
-      Alert.alert('エラー', '植物の名前を入力してください');
-      return;
-    }
-
-    try {
-      // 一時的にデフォルトの植物種（エケベリア）を使用
-      const defaultSpecies = PLANT_SPECIES[0];
-      const nextSlotIndex = plants.length; // 簡易的に次の枠番号
-      
-      await createPlant({ 
-        speciesId: defaultSpecies.id,
-        slotIndex: nextSlotIndex,
-        nickname: newPlantName.trim(),
-      });
-      setNewPlantName('');
-      setModalVisible(false);
-      Alert.alert('成功', `${newPlantName}を作成しました！`);
-    } catch (error) {
-      Alert.alert('エラー', '植物の作成に失敗しました');
-    }
-  };
 
   const renderPlant = ({ item }: { item: Plant }) => {
     const growthPercentage = calcGrowthPercentage(item.growthPoints);
@@ -94,19 +63,13 @@ export default function HomeScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>育てている植物</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => setModalVisible(true)}
-        >
-          <Text style={styles.addButtonText}>＋ 新しい植物</Text>
-        </TouchableOpacity>
       </View>
 
       {plants.length === 0 ? (
         <View style={styles.emptyState}>
           <Text style={styles.emptyText}>まだ植物がありません</Text>
           <Text style={styles.emptySubtext}>
-            新しい植物を作成して育成を始めましょう！
+            ガチャで種を入手して植物を育てましょう！
           </Text>
         </View>
       ) : (
@@ -117,49 +80,6 @@ export default function HomeScreen() {
           contentContainerStyle={styles.listContainer}
         />
       )}
-
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>新しい植物を作成</Text>
-            
-            <TextInput
-              style={styles.input}
-              placeholder="植物の名前を入力"
-              value={newPlantName}
-              onChangeText={setNewPlantName}
-              autoFocus
-            />
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => {
-                  setModalVisible(false);
-                  setNewPlantName('');
-                }}
-              >
-                <Text style={styles.cancelButtonText}>キャンセル</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.modalButton, styles.createButton]}
-                onPress={handleCreatePlant}
-                disabled={loading}
-              >
-                <Text style={styles.createButtonText}>
-                  {loading ? '作成中...' : '作成'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
