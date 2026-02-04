@@ -75,8 +75,24 @@ export const usePlantsStore = create<PlantsState>((set, get) => ({
   loadPlants: async () => {
     set({ loading: true, error: null });
     try {
-      const plants = await plantRepository.getAllPlants();
+      const rawPlants = await plantRepository.getAllPlants();
       const activeSession = await sessionRepository.getActiveSession();
+      const currentTime = now();
+      
+      // 既存データに欠けているフィールドを補完
+      const plants = rawPlants.map(plant => {
+        const careState = createDefaultPlantCareState();
+        
+        // lastCareCheckAtが未定義の場合は現在時刻を設定（過去からの経過時間を計算しない）
+        const lastCareCheckAt = plant.lastCareCheckAt !== undefined ? plant.lastCareCheckAt : currentTime;
+        
+        return {
+          ...careState, // デフォルト値
+          ...plant,     // 既存の値で上書き
+          lastCareCheckAt, // lastCareCheckAtを明示的に設定
+        };
+      });
+      
       set({ plants, activeSession, loading: false });
     } catch (error) {
       set({ error: (error as Error).message, loading: false });

@@ -27,6 +27,7 @@ export default function HomeScreen() {
     waterPlantById,
     fertilizePlantById,
     curePlantById,
+    deletePlant,
   } = usePlantsStore();
   
   const [selectSeedModalVisible, setSelectSeedModalVisible] = useState(false);
@@ -100,6 +101,36 @@ export default function HomeScreen() {
     } catch (error) {
       Alert.alert('エラー', (error as Error).message);
     }
+  };
+
+  const handleRemovePlant = () => {
+    if (!selectedPlantForCare) return;
+    
+    const plant = plants.find(p => p.id === selectedPlantForCare);
+    if (!plant) return;
+    
+    const plantName = getPlantFullName(plant);
+    
+    Alert.alert(
+      '植物を処分',
+      `${plantName}を処分しますか？\n\nこの操作は取り消せません。`,
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: '処分する',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deletePlant(selectedPlantForCare);
+              setSelectedPlantForCare(null);
+              Alert.alert('完了', '植物を処分しました');
+            } catch (error) {
+              Alert.alert('エラー', '処分に失敗しました');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handlePlantSeed = async (seedId: string) => {
@@ -343,6 +374,14 @@ export default function HomeScreen() {
                 ) : (
                   <Text style={styles.deadMessage}>枯れています...</Text>
                 )}
+                
+                {/* 処分ボタン */}
+                <TouchableOpacity
+                  style={styles.removeButton}
+                  onPress={handleRemovePlant}
+                >
+                  <Text style={styles.removeButtonText}>🗑️ 植物を処分</Text>
+                </TouchableOpacity>
               </>
             )}
             
@@ -703,6 +742,21 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
     marginVertical: 24,
+  },
+  removeButton: {
+    backgroundColor: '#f44336',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 16,
+    marginBottom: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#d32f2f',
+  },
+  removeButtonText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#fff',
   },
   modalOverlay: {
     flex: 1,

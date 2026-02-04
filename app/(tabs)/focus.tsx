@@ -14,6 +14,7 @@ import { useSessionInfo, useActivePlants } from '@/features/plants/selectors';
 import { SessionMinutes } from '@core/domain/models';
 import { calcGrowthPoints } from '@core/domain/rules';
 import { getPlantFullName } from '@/features/plants/helpers';
+import { isPlantInBadCondition } from '@core/engine/careEngine';
 
 const SESSION_OPTIONS: SessionMinutes[] = [10, 25, 45, 60];
 
@@ -54,6 +55,31 @@ export default function FocusScreen() {
       return;
     }
 
+    // 植物の状態をチェック
+    const plantsInBadCondition = plants.filter(p => isPlantInBadCondition(p));
+    
+    if (plantsInBadCondition.length > 0) {
+      Alert.alert(
+        '注意',
+        `${plantsInBadCondition.length}個の植物の状態が悪いです。\n\n状態が悪い植物は成長ポイントをほとんど獲得できません。\n\n世話をしてからセッションを開始することをおすすめします。`,
+        [
+          { text: 'キャンセル', style: 'cancel' },
+          {
+            text: 'このまま開始',
+            style: 'default',
+            onPress: async () => {
+              await executeStartSession();
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    await executeStartSession();
+  };
+
+  const executeStartSession = async () => {
     try {
       // モーダルを明示的に閉じる
       setResultModalVisible(false);

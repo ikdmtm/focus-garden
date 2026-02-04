@@ -284,18 +284,34 @@ export function needsCure(plant: Plant): boolean {
 }
 
 /**
+ * 植物の状態が悪いかどうか
+ * @param plant 植物
+ * @returns 状態が悪い場合true
+ */
+export function isPlantInBadCondition(plant: Plant): boolean {
+  if (plant.isDead) return true;
+  if (plant.diseaseType) return true;
+  if (plant.health < 30) return true;
+  if (plant.waterLevel < 30) return true;
+  if (plant.nutritionLevel < 20) return true;
+  return false;
+}
+
+/**
  * 新しい植物のデフォルト状態を作成
+ * 植えたばかりの植物は満タンの状態
  * @returns デフォルト状態
  */
 export function createDefaultPlantCareState() {
+  const currentTime = now();
   return {
-    waterLevel: 70,
-    nutritionLevel: 70,
+    waterLevel: 100,
+    nutritionLevel: 100,
     health: 100,
     diseaseType: null as DiseaseType | null,
-    lastWateredAt: null as number | null,
-    lastFertilizedAt: null as number | null,
-    lastCareCheckAt: now(),
+    lastWateredAt: currentTime,
+    lastFertilizedAt: currentTime,
+    lastCareCheckAt: currentTime,
     isDead: false,
   };
 }
