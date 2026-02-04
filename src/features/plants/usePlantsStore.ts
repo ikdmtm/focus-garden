@@ -75,8 +75,18 @@ export const usePlantsStore = create<PlantsState>((set, get) => ({
   loadPlants: async () => {
     set({ loading: true, error: null });
     try {
-      const plants = await plantRepository.getAllPlants();
+      const rawPlants = await plantRepository.getAllPlants();
       const activeSession = await sessionRepository.getActiveSession();
+      
+      // 既存データに欠けているフィールドを補完
+      const plants = rawPlants.map(plant => {
+        const careState = createDefaultPlantCareState();
+        return {
+          ...careState, // デフォルト値
+          ...plant,     // 既存の値で上書き
+        };
+      });
+      
       set({ plants, activeSession, loading: false });
     } catch (error) {
       set({ error: (error as Error).message, loading: false });
