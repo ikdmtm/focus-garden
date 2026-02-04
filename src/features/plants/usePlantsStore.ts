@@ -139,6 +139,11 @@ export const usePlantsStore = create<PlantsState>((set, get) => ({
         throw new Error('この枠は既に使用されています');
       }
       
+      // 植物の総数チェック
+      if (plants.length >= maxSlots) {
+        throw new Error('育成枠が満杯です');
+      }
+      
       // 植物を作成
       const plant: Plant = {
         id: generateId(),

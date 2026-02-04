@@ -14,13 +14,12 @@ import { getSpeciesById } from '@core/domain/species';
 
 export default function GachaScreen() {
   const { freeGachaRemaining, lastGachaResult, loading, loadGachaStatus, executeGacha: execGacha, clearLastResult } = useGachaStore();
-  const { seeds, loadSeeds } = usePlantsStore();
+  const { loadSeeds } = usePlantsStore();
   
   const [resultModalVisible, setResultModalVisible] = useState(false);
 
   useEffect(() => {
     loadGachaStatus();
-    loadSeeds();
   }, []);
 
   // ガチャ結果があればモーダル表示
@@ -72,9 +71,9 @@ export default function GachaScreen() {
           <View style={styles.rateInfo}>
             <Text style={styles.rateLabel}>排出率</Text>
             <View style={styles.rateRow}>
-              <Text style={styles.rateItem}>Common: 70%</Text>
-              <Text style={styles.rateItem}>Rare: 25%</Text>
-              <Text style={styles.rateItem}>Epic: 5%</Text>
+              <Text style={styles.rateItem}>Common: 85%</Text>
+              <Text style={styles.rateItem}>Rare: 13%</Text>
+              <Text style={styles.rateItem}>Epic: 2%</Text>
             </View>
           </View>
 
@@ -105,9 +104,9 @@ export default function GachaScreen() {
           <View style={styles.rateInfo}>
             <Text style={styles.rateLabel}>排出率（確率アップ！）</Text>
             <View style={styles.rateRow}>
-              <Text style={styles.rateItem}>Common: 50%</Text>
-              <Text style={styles.rateItem}>Rare: 35%</Text>
-              <Text style={[styles.rateItem, styles.epicHighlight]}>Epic: 15%</Text>
+              <Text style={styles.rateItem}>Common: 70%</Text>
+              <Text style={styles.rateItem}>Rare: 25%</Text>
+              <Text style={[styles.rateItem, styles.epicHighlight]}>Epic: 5%</Text>
             </View>
           </View>
 
@@ -117,40 +116,6 @@ export default function GachaScreen() {
           >
             <Text style={styles.gachaButtonText}>有料ガチャを引く</Text>
           </TouchableOpacity>
-        </View>
-
-        {/* 種インベントリ */}
-        <View style={styles.inventoryCard}>
-          <Text style={styles.inventoryTitle}>持っている種</Text>
-          <Text style={styles.inventoryCount}>{seeds.length}個</Text>
-          
-          {seeds.length === 0 ? (
-            <View style={styles.emptyInventory}>
-              <Text style={styles.emptyText}>まだ種がありません</Text>
-              <Text style={styles.emptySubtext}>ガチャを引いて種を入手しよう！</Text>
-            </View>
-          ) : (
-            <ScrollView style={styles.seedsList}>
-              {seeds.map(seed => {
-                const species = getSpeciesById(seed.speciesId);
-                if (!species) return null;
-                
-                return (
-                  <View key={seed.id} style={styles.seedItem}>
-                    <View style={styles.seedInfo}>
-                      <Text style={styles.seedName}>{species.name}</Text>
-                      <Text style={styles.seedCategory}>{species.category}</Text>
-                    </View>
-                    <View style={[styles.rarityBadge, styles[`rarity${species.rarity}`]]}>
-                      <Text style={styles.rarityText}>
-                        {species.rarity === 'common' ? 'C' : species.rarity === 'rare' ? 'R' : 'E'}
-                      </Text>
-                    </View>
-                  </View>
-                );
-              })}
-            </ScrollView>
-          )}
         </View>
       </ScrollView>
 
@@ -290,66 +255,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#fff',
-  },
-  inventoryCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  inventoryTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  inventoryCount: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 16,
-  },
-  emptyInventory: {
-    padding: 32,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#999',
-    marginBottom: 4,
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#bbb',
-  },
-  seedsList: {
-    maxHeight: 300,
-  },
-  seedItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  seedInfo: {
-    flex: 1,
-  },
-  seedName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 2,
-  },
-  seedCategory: {
-    fontSize: 12,
-    color: '#666',
   },
   rarityBadge: {
     width: 28,

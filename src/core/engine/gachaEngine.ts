@@ -16,13 +16,13 @@ import { generateId, now } from '../domain/ids';
 export function rollRarityFree(rng: RNG = defaultRNG): Rarity {
   const roll = rng.random();
   
-  // Common: 70%
-  if (roll < 0.70) return 'common';
+  // Common: 85%
+  if (roll < 0.85) return 'common';
   
-  // Rare: 25%
-  if (roll < 0.95) return 'rare';
+  // Rare: 13%
+  if (roll < 0.98) return 'rare';
   
-  // Epic: 5%
+  // Epic: 2%
   return 'epic';
 }
 
@@ -34,13 +34,13 @@ export function rollRarityFree(rng: RNG = defaultRNG): Rarity {
 export function rollRarityPaid(rng: RNG = defaultRNG): Rarity {
   const roll = rng.random();
   
-  // Common: 50%
-  if (roll < 0.50) return 'common';
+  // Common: 70%
+  if (roll < 0.70) return 'common';
   
-  // Rare: 35%
-  if (roll < 0.85) return 'rare';
+  // Rare: 25%
+  if (roll < 0.95) return 'rare';
   
-  // Epic: 15%
+  // Epic: 5%
   return 'epic';
 }
 
