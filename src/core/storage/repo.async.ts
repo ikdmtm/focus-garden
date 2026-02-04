@@ -4,8 +4,9 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Plant, FocusSession, Seed } from '../domain/models';
-import { PlantRepository, SessionRepository, SeedRepository, SlotRepository } from './repo';
+import { PlantRepository, SessionRepository, SeedRepository, SlotRepository, GachaRepository } from './repo';
 import { STORAGE_KEYS } from './schema';
+import { now } from '../domain/ids';
 
 // ========================================
 // PlantRepository実装
@@ -193,6 +194,62 @@ export class AsyncStorageSlotRepository implements SlotRepository {
 }
 
 // ========================================
+// GachaRepository実装
+// ========================================
+
+export class AsyncStorageGachaRepository implements GachaRepository {
+  async getFreeGachaCount(): Promise<number> {
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.GACHA_FREE_COUNT);
+      if (!data) return 0;
+      return parseInt(data, 10);
+    } catch (error) {
+      console.error('Failed to get free gacha count:', error);
+      return 0;
+    }
+  }
+
+  async incrementFreeGachaCount(): Promise<void> {
+    try {
+      const count = await this.getFreeGachaCount();
+      await AsyncStorage.setItem(STORAGE_KEYS.GACHA_FREE_COUNT, (count + 1).toString());
+    } catch (error) {
+      console.error('Failed to increment free gacha count:', error);
+      throw error;
+    }
+  }
+
+  async resetFreeGachaCount(): Promise<void> {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.GACHA_FREE_COUNT, '0');
+    } catch (error) {
+      console.error('Failed to reset free gacha count:', error);
+      throw error;
+    }
+  }
+
+  async getLastResetDate(): Promise<number> {
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.GACHA_LAST_RESET);
+      if (!data) return now(); // 初回は現在時刻
+      return parseInt(data, 10);
+    } catch (error) {
+      console.error('Failed to get last reset date:', error);
+      return now();
+    }
+  }
+
+  async setLastResetDate(date: number): Promise<void> {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.GACHA_LAST_RESET, date.toString());
+    } catch (error) {
+      console.error('Failed to set last reset date:', error);
+      throw error;
+    }
+  }
+}
+
+// ========================================
 // デフォルトインスタンス
 // ========================================
 
@@ -200,3 +257,4 @@ export const plantRepository = new AsyncStoragePlantRepository();
 export const sessionRepository = new AsyncStorageSessionRepository();
 export const seedRepository = new AsyncStorageSeedRepository();
 export const slotRepository = new AsyncStorageSlotRepository();
+export const gachaRepository = new AsyncStorageGachaRepository();

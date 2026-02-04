@@ -18,6 +18,13 @@ export default function TabsLayout() {
         }} 
       />
       <Tabs.Screen 
+        name="gacha" 
+        options={{ 
+          title: 'ガチャ',
+          tabBarLabel: 'ガチャ',
+        }} 
+      />
+      <Tabs.Screen 
         name="settings" 
         options={{ 
           title: '設定',
