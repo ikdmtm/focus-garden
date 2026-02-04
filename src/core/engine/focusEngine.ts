@@ -20,6 +20,52 @@ import { calcGrowthPoints, rollMutation, addMutation, minutesToMs } from '../dom
 import { RNG, defaultRNG } from '../domain/rng';
 
 // ========================================
+// ヘルパー関数
+// ========================================
+
+/**
+ * 植物の状態に応じたGP獲得倍率を計算
+ * @param plant 植物
+ * @returns GP倍率（0.0-1.0）
+ */
+function calculateCareMultiplier(plant: Plant): number {
+  // 枯れている場合は0
+  if (plant.isDead) {
+    return 0;
+  }
+  
+  let multiplier = 1.0;
+  
+  // 水分が低い場合、倍率を下げる
+  if (plant.waterLevel < 30) {
+    multiplier *= 0.3; // 70%減
+  } else if (plant.waterLevel < 50) {
+    multiplier *= 0.7; // 30%減
+  }
+  
+  // 栄養が低い場合、倍率を下げる
+  if (plant.nutritionLevel < 20) {
+    multiplier *= 0.3; // 70%減
+  } else if (plant.nutritionLevel < 40) {
+    multiplier *= 0.7; // 30%減
+  }
+  
+  // 病気の場合、倍率を下げる
+  if (plant.diseaseType) {
+    multiplier *= 0.5; // 50%減
+  }
+  
+  // 健康度が低い場合、倍率を下げる
+  if (plant.health < 30) {
+    multiplier *= 0.2; // 80%減
+  } else if (plant.health < 60) {
+    multiplier *= 0.6; // 40%減
+  }
+  
+  return multiplier;
+}
+
+// ========================================
 // セッション作成
 // ========================================
 
@@ -91,7 +137,12 @@ export function completeSession(
   
   // 各植物の結果を計算
   const plantResults: PlantSessionResult[] = plants.map(plant => {
-    const earnedGP = calcGrowthPoints(session.minutes);
+    const baseGP = calcGrowthPoints(session.minutes);
+    
+    // 植物の状態に応じてGPを調整
+    const careMultiplier = calculateCareMultiplier(plant);
+    const earnedGP = Math.floor(baseGP * careMultiplier);
+    
     const newMutation = rollMutation(plant, session.minutes, rng);
     
     return {
