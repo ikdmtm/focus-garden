@@ -40,10 +40,10 @@ export default function FocusScreen() {
     return () => clearInterval(interval);
   }, [isActive]);
 
-  // セッション結果があれば自動でモーダル表示（完了時のみ）
+  // セッション結果があれば自動でモーダル表示（完了時・中断時両方）
   useEffect(() => {
-    if (lastSessionResults.length > 0 && !isActive && lastSessionResults.some(r => r.earnedGP > 0)) {
-      // GP獲得がある場合のみ自動表示（完了時）
+    if (lastSessionResults.length > 0 && !isActive) {
+      // 完了時も中断時もモーダル表示
       setResultModalVisible(true);
     }
   }, [lastSessionResults, isActive]);
@@ -79,8 +79,10 @@ export default function FocusScreen() {
           onPress: async () => {
             try {
               await interruptCurrentSession();
-              // 中断後すぐにモーダルを表示
-              setResultModalVisible(true);
+              // 画面遷移後にモーダルを表示（タイミング調整）
+              setTimeout(() => {
+                setResultModalVisible(true);
+              }, 100);
             } catch (error) {
               Alert.alert('エラー', 'セッションの中断に失敗しました');
             }
