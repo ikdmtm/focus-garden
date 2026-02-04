@@ -299,15 +299,16 @@ export function isPlantInBadCondition(plant: Plant): boolean {
 
 /**
  * 新しい植物のデフォルト状態を作成
+ * 植えたばかりの植物は少し世話が必要な状態（育ててる感を出すため）
  * @returns デフォルト状態
  */
 export function createDefaultPlantCareState() {
   return {
-    waterLevel: 70,
-    nutritionLevel: 70,
-    health: 100,
+    waterLevel: 60,        // 水やりが必要な状態（50%未満で「水不足」表示）
+    nutritionLevel: 50,    // 肥料やりが必要な状態（30%未満で必要）
+    health: 100,           // 健康な状態（病気なし）
     diseaseType: null as DiseaseType | null,
-    lastWateredAt: null as number | null,
+    lastWateredAt: null as number | null,   // まだ世話していない
     lastFertilizedAt: null as number | null,
     lastCareCheckAt: now(),
     isDead: false,
