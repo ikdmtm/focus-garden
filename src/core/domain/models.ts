@@ -31,6 +31,15 @@ export const ALL_SESSION_MINUTES: readonly SessionMinutes[] = [
 ] as const;
 
 // ========================================
+// 病気の種類
+// ========================================
+export type DiseaseType = 
+  | 'root_rot'        // 根腐れ（水のやりすぎ）
+  | 'pest'            // 害虫
+  | 'fungus'          // カビ・菌類
+  | 'nutrient_def';   // 栄養不足
+
+// ========================================
 // 植物個体
 // ========================================
 export interface Plant {
@@ -42,6 +51,16 @@ export interface Plant {
   mutations: MutationId[];              // 保持している突然変異のリスト
   plantedAt: number;                    // 植えた日時（UNIX timestamp）
   updatedAt: number;                    // 更新日時（UNIX timestamp）
+  
+  // 世話システム関連
+  waterLevel: number;                   // 水分レベル（0-100）
+  nutritionLevel: number;               // 栄養レベル（0-100）
+  health: number;                       // 健康度（0-100）
+  diseaseType: DiseaseType | null;      // 病気の種類（nullなら健康）
+  lastWateredAt: number | null;         // 最後に水やりした時刻（UNIX timestamp）
+  lastFertilizedAt: number | null;      // 最後に肥料をやった時刻（UNIX timestamp）
+  lastCareCheckAt: number;              // 最後に状態チェックした時刻（時間経過計算用）
+  isDead: boolean;                      // 枯れているか
 }
 
 // ========================================

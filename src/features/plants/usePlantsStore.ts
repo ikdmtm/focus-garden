@@ -17,6 +17,13 @@ import {
   getSessionProgress,
   getSessionRemainingTime,
 } from '@core/engine/focusEngine';
+import { 
+  createDefaultPlantCareState, 
+  updatePlantState, 
+  waterPlant, 
+  fertilizePlant, 
+  curePlant 
+} from '@core/engine/careEngine';
 
 interface PlantsState {
   // State
@@ -41,6 +48,12 @@ interface PlantsState {
   checkSessionCompletion: () => Promise<void>;
   interruptCurrentSession: () => Promise<void>;
   clearSessionResults: () => void;
+  
+  // Care Actions
+  updateAllPlantsState: () => Promise<void>;
+  waterPlantById: (plantId: string) => Promise<void>;
+  fertilizePlantById: (plantId: string) => Promise<void>;
+  curePlantById: (plantId: string) => Promise<void>;
   
   // Helpers
   getPlantById: (id: string) => Plant | undefined;
@@ -94,6 +107,8 @@ export const usePlantsStore = create<PlantsState>((set, get) => ({
   createPlant: async (params: CreatePlantParams) => {
     set({ loading: true, error: null });
     try {
+      const careState = createDefaultPlantCareState();
+      
       const plant: Plant = {
         id: generateId(),
         speciesId: params.speciesId,
@@ -103,6 +118,7 @@ export const usePlantsStore = create<PlantsState>((set, get) => ({
         mutations: [],
         plantedAt: now(),
         updatedAt: now(),
+        ...careState,
       };
       
       await plantRepository.savePlant(plant);
@@ -145,6 +161,8 @@ export const usePlantsStore = create<PlantsState>((set, get) => ({
       }
       
       // 植物を作成
+      const careState = createDefaultPlantCareState();
+      
       const plant: Plant = {
         id: generateId(),
         speciesId: seed.speciesId,
@@ -154,6 +172,7 @@ export const usePlantsStore = create<PlantsState>((set, get) => ({
         mutations: [],
         plantedAt: now(),
         updatedAt: now(),
+        ...careState,
       };
       
       // 保存
@@ -295,6 +314,100 @@ export const usePlantsStore = create<PlantsState>((set, get) => ({
   // Clear session results (モーダルを閉じたときに呼ぶ)
   clearSessionResults: () => {
     set({ lastSessionResults: [] });
+  },
+
+  // Update all plants state (時間経過による状態変化)
+  updateAllPlantsState: async () => {
+    try {
+      const { plants } = get();
+      const currentTime = now();
+      
+      const updatedPlants = plants.map(plant => 
+        updatePlantState(plant, currentTime)
+      );
+      
+      // Save all updated plants
+      for (const plant of updatedPlants) {
+        await plantRepository.savePlant(plant);
+      }
+      
+      set({ plants: updatedPlants });
+    } catch (error) {
+      set({ error: (error as Error).message });
+      throw error;
+    }
+  },
+
+  // Water a plant
+  waterPlantById: async (plantId: string) => {
+    try {
+      const { plants } = get();
+      const plant = plants.find(p => p.id === plantId);
+      
+      if (!plant) {
+        throw new Error('植物が見つかりません');
+      }
+      
+      const updatedPlant = waterPlant(plant);
+      await plantRepository.savePlant(updatedPlant);
+      
+      const updatedPlants = plants.map(p => 
+        p.id === plantId ? updatedPlant : p
+      );
+      
+      set({ plants: updatedPlants });
+    } catch (error) {
+      set({ error: (error as Error).message });
+      throw error;
+    }
+  },
+
+  // Fertilize a plant
+  fertilizePlantById: async (plantId: string) => {
+    try {
+      const { plants } = get();
+      const plant = plants.find(p => p.id === plantId);
+      
+      if (!plant) {
+        throw new Error('植物が見つかりません');
+      }
+      
+      const updatedPlant = fertilizePlant(plant);
+      await plantRepository.savePlant(updatedPlant);
+      
+      const updatedPlants = plants.map(p => 
+        p.id === plantId ? updatedPlant : p
+      );
+      
+      set({ plants: updatedPlants });
+    } catch (error) {
+      set({ error: (error as Error).message });
+      throw error;
+    }
+  },
+
+  // Cure a plant
+  curePlantById: async (plantId: string) => {
+    try {
+      const { plants } = get();
+      const plant = plants.find(p => p.id === plantId);
+      
+      if (!plant) {
+        throw new Error('植物が見つかりません');
+      }
+      
+      const updatedPlant = curePlant(plant);
+      await plantRepository.savePlant(updatedPlant);
+      
+      const updatedPlants = plants.map(p => 
+        p.id === plantId ? updatedPlant : p
+      );
+      
+      set({ plants: updatedPlants });
+    } catch (error) {
+      set({ error: (error as Error).message });
+      throw error;
+    }
   },
 
   // Helper: Get plant by ID

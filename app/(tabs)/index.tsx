@@ -12,17 +12,41 @@ import { usePlantsStore } from '@/features/plants/usePlantsStore';
 import { calcGrowthPercentage, isFullyGrown } from '@core/domain/rules';
 import { getPlantFullName } from '@/features/plants/helpers';
 import { getSpeciesById } from '@core/domain/species';
+import { getPlantCondition, needsWater, needsFertilizer, needsCure } from '@core/engine/careEngine';
 
 export default function HomeScreen() {
-  const { plants, seeds, maxSlots, loadPlants, loadSeeds, loadMaxSlots, plantSeed } = usePlantsStore();
+  const { 
+    plants, 
+    seeds, 
+    maxSlots, 
+    loadPlants, 
+    loadSeeds, 
+    loadMaxSlots, 
+    plantSeed,
+    updateAllPlantsState,
+    waterPlantById,
+    fertilizePlantById,
+    curePlantById,
+  } = usePlantsStore();
   
   const [selectSeedModalVisible, setSelectSeedModalVisible] = useState(false);
   const [selectedSlotIndex, setSelectedSlotIndex] = useState<number | null>(null);
+  const [selectedPlantForCare, setSelectedPlantForCare] = useState<string | null>(null);
 
   useEffect(() => {
     loadPlants();
     loadSeeds();
     loadMaxSlots();
+    
+    // 状態を定期的に更新
+    updateAllPlantsState();
+    
+    // 1分ごとに状態を更新
+    const interval = setInterval(() => {
+      updateAllPlantsState();
+    }, 60 * 1000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const handleSlotPress = (slotIndex: number) => {
@@ -37,8 +61,44 @@ export default function HomeScreen() {
       setSelectedSlotIndex(slotIndex);
       setSelectSeedModalVisible(true);
     } else {
-      // 植物がある枠をタップ → 詳細表示（将来実装）
-      Alert.alert('詳細表示', '植物詳細画面は未実装です');
+      // 植物がある枠をタップ → 世話メニュー表示
+      setSelectedPlantForCare(plant.id);
+    }
+  };
+
+  const handleWater = async () => {
+    if (!selectedPlantForCare) return;
+    
+    try {
+      await waterPlantById(selectedPlantForCare);
+      Alert.alert('完了', '水をやりました');
+      setSelectedPlantForCare(null);
+    } catch (error) {
+      Alert.alert('エラー', (error as Error).message);
+    }
+  };
+
+  const handleFertilize = async () => {
+    if (!selectedPlantForCare) return;
+    
+    try {
+      await fertilizePlantById(selectedPlantForCare);
+      Alert.alert('完了', '肥料をやりました');
+      setSelectedPlantForCare(null);
+    } catch (error) {
+      Alert.alert('エラー', (error as Error).message);
+    }
+  };
+
+  const handleCure = async () => {
+    if (!selectedPlantForCare) return;
+    
+    try {
+      await curePlantById(selectedPlantForCare);
+      Alert.alert('完了', '治療しました');
+      setSelectedPlantForCare(null);
+    } catch (error) {
+      Alert.alert('エラー', (error as Error).message);
     }
   };
 
@@ -84,6 +144,7 @@ export default function HomeScreen() {
     const species = getSpeciesById(plant.speciesId);
     const growthPercentage = calcGrowthPercentage(plant.growthPoints);
     const fullyGrown = isFullyGrown(plant.growthPoints);
+    const condition = getPlantCondition(plant);
 
     return (
       <TouchableOpacity
@@ -109,6 +170,43 @@ export default function HomeScreen() {
             <Text style={styles.plantCategory}>{species.category}</Text>
           )}
 
+          {/* 植物の状態 */}
+          <View style={[
+            styles.conditionBadge,
+            plant.isDead && styles.conditionDead,
+            plant.diseaseType && styles.conditionDisease,
+            plant.health < 50 && !plant.isDead && !plant.diseaseType && styles.conditionWeak,
+          ]}>
+            <Text style={styles.conditionText}>{condition}</Text>
+          </View>
+
+          {/* 状態バー */}
+          {!plant.isDead && (
+            <View style={styles.statusBars}>
+              <View style={styles.statusBar}>
+                <Text style={styles.statusLabel}>💧 {Math.round(plant.waterLevel)}%</Text>
+                <View style={styles.statusBarBg}>
+                  <View style={[styles.statusBarFill, { width: `${plant.waterLevel}%`, backgroundColor: '#2196f3' }]} />
+                </View>
+              </View>
+              
+              <View style={styles.statusBar}>
+                <Text style={styles.statusLabel}>🌱 {Math.round(plant.nutritionLevel)}%</Text>
+                <View style={styles.statusBarBg}>
+                  <View style={[styles.statusBarFill, { width: `${plant.nutritionLevel}%`, backgroundColor: '#8bc34a' }]} />
+                </View>
+              </View>
+              
+              <View style={styles.statusBar}>
+                <Text style={styles.statusLabel}>❤️ {Math.round(plant.health)}%</Text>
+                <View style={styles.statusBarBg}>
+                  <View style={[styles.statusBarFill, { width: `${plant.health}%`, backgroundColor: '#f44336' }]} />
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* 成長度 */}
           <View style={styles.growthInfo}>
             <Text style={styles.growthLabel}>成長度</Text>
             <Text style={styles.growthPercentage}>
@@ -144,6 +242,8 @@ export default function HomeScreen() {
       </TouchableOpacity>
     );
   };
+
+  const careMenuPlant = plants.find(p => p.id === selectedPlantForCare);
 
   return (
     <View style={styles.container}>
@@ -194,6 +294,67 @@ export default function HomeScreen() {
         {/* 育成枠 */}
         {Array.from({ length: maxSlots }, (_, i) => renderSlot(i))}
       </ScrollView>
+
+      {/* 世話メニューモーダル */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={selectedPlantForCare !== null}
+        onRequestClose={() => setSelectedPlantForCare(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {careMenuPlant && (
+              <>
+                <Text style={styles.modalTitle}>{getPlantFullName(careMenuPlant)}</Text>
+                <Text style={styles.careCondition}>{getPlantCondition(careMenuPlant)}</Text>
+                
+                {!careMenuPlant.isDead ? (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.careButton, !needsWater(careMenuPlant) && styles.careButtonDisabled]}
+                      onPress={handleWater}
+                      disabled={!needsWater(careMenuPlant)}
+                    >
+                      <Text style={styles.careButtonText}>
+                        💧 水やり {needsWater(careMenuPlant) ? '(必要)' : ''}
+                      </Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity
+                      style={[styles.careButton, !needsFertilizer(careMenuPlant) && styles.careButtonDisabled]}
+                      onPress={handleFertilize}
+                      disabled={!needsFertilizer(careMenuPlant)}
+                    >
+                      <Text style={styles.careButtonText}>
+                        🌱 肥料やり {needsFertilizer(careMenuPlant) ? '(必要)' : ''}
+                      </Text>
+                    </TouchableOpacity>
+                    
+                    {needsCure(careMenuPlant) && (
+                      <TouchableOpacity
+                        style={[styles.careButton, styles.cureButton]}
+                        onPress={handleCure}
+                      >
+                        <Text style={styles.careButtonText}>💊 治療</Text>
+                      </TouchableOpacity>
+                    )}
+                  </>
+                ) : (
+                  <Text style={styles.deadMessage}>枯れています...</Text>
+                )}
+              </>
+            )}
+            
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => setSelectedPlantForCare(null)}
+            >
+              <Text style={styles.cancelButtonText}>閉じる</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* 種選択モーダル */}
       <Modal
@@ -469,6 +630,79 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
     textAlign: 'right',
+  },
+  conditionBadge: {
+    backgroundColor: '#4caf50',
+    paddingVertical: 4,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginBottom: 12,
+    alignSelf: 'flex-start',
+  },
+  conditionDead: {
+    backgroundColor: '#616161',
+  },
+  conditionDisease: {
+    backgroundColor: '#f44336',
+  },
+  conditionWeak: {
+    backgroundColor: '#ff9800',
+  },
+  conditionText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  statusBars: {
+    marginBottom: 12,
+  },
+  statusBar: {
+    marginBottom: 6,
+  },
+  statusLabel: {
+    fontSize: 11,
+    color: '#666',
+    marginBottom: 2,
+  },
+  statusBarBg: {
+    height: 6,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  statusBarFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  careCondition: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  careButton: {
+    backgroundColor: '#4caf50',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  careButtonDisabled: {
+    backgroundColor: '#ccc',
+  },
+  cureButton: {
+    backgroundColor: '#9c27b0',
+  },
+  careButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  deadMessage: {
+    fontSize: 16,
+    color: '#999',
+    textAlign: 'center',
+    marginVertical: 24,
   },
   modalOverlay: {
     flex: 1,

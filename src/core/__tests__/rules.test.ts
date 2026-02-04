@@ -91,6 +91,14 @@ describe('突然変異抽選', () => {
     mutations: [],
     plantedAt: Date.now(),
     updatedAt: Date.now(),
+    waterLevel: 70,
+    nutritionLevel: 70,
+    health: 100,
+    diseaseType: null,
+    lastWateredAt: null,
+    lastFertilizedAt: null,
+    lastCareCheckAt: Date.now(),
+    isDead: false,
   };
 
   test('確率0%で外れ', () => {
@@ -144,6 +152,14 @@ describe('突然変異追加', () => {
     mutations: [],
     plantedAt: 1000,
     updatedAt: 1000,
+    waterLevel: 70,
+    nutritionLevel: 70,
+    health: 100,
+    diseaseType: null,
+    lastWateredAt: null,
+    lastFertilizedAt: null,
+    lastCareCheckAt: 1000,
+    isDead: false,
   };
 
   test('新しい突然変異を追加', () => {
