@@ -72,12 +72,11 @@ export const usePlantsStore = create<PlantsState>((set, get) => ({
 
   // Load seeds
   loadSeeds: async () => {
-    set({ loading: true, error: null });
     try {
       const seeds = await seedRepository.getAllSeeds();
-      set({ seeds, loading: false });
+      set({ seeds });
     } catch (error) {
-      set({ error: (error as Error).message, loading: false });
+      set({ error: (error as Error).message });
     }
   },
 
